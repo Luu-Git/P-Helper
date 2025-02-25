@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isTutor() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'tutor' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    function isProfessor() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'professor';
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Calendar entries collection
+    match /calendarEntries/{entryId} {
+      // Anyone authenticated can read
+      allow read: if isAuthenticated();
+      
+      // Professors can create and edit their own entries
+      allow create: if isProfessor();
+      allow update: if isProfessor() && 
+        resource.data.professorId == request.auth.uid;
+      
+      // Tutors can update only their responses
+      allow update: if isTutor() && 
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['tutorResponses', 'updatedAt']);
+    }
+
+    // Professors collection
+    match /professors/{professorId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Students collection
+    match /students/{studentId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isTutor();
+      allow delete: if isAdmin();
+    }
+
+    // Student notes collection
+    match /studentNotes/{noteId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isTutor();
+      allow delete: if isAdmin();
+    }
+
+    // Tutors collection
+    match /tutors/{tutorId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+} 
