@@ -28,14 +28,27 @@ const auth = getAuth(app);
 // Initialize Firestore
 const db = getFirestore(app);
 
-// Initialize Functions
-const functions = getFunctions(app, 'us-central1');
+// Initialize Functions - only in browser environment
+let functions;
+if (typeof window !== 'undefined') {
+  try {
+    functions = getFunctions(app, 'us-central1');
+  } catch (error) {
+    console.error("Error initializing Firebase Functions:", error);
+  }
+} else {
+  console.log("Skipping Firebase Functions initialization in non-browser environment");
+  // Create a mock functions object for SSR
+  functions = {} as ReturnType<typeof getFunctions>;
+}
 
-// Set auth persistence to browser local storage
-try {
-  setPersistence(auth, browserLocalPersistence);
-} catch (error) {
-  console.error("Error setting auth persistence:", error);
+// Set auth persistence to browser local storage - only in browser environment
+if (typeof window !== 'undefined') {
+  try {
+    setPersistence(auth, browserLocalPersistence);
+  } catch (error) {
+    console.error("Error setting auth persistence:", error);
+  }
 }
 
 // Log the configuration (without sensitive data) to help with debugging

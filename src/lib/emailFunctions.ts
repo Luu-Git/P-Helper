@@ -29,6 +29,15 @@ export const sendAcknowledgmentEmail = async (data: AcknowledgmentEmailData) => 
       };
     }
     
+    // Check if we're in a build environment
+    if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
+      console.log('Skipping email send during build');
+      return { 
+        success: true, 
+        data: { message: 'Email sending skipped during build' }
+      };
+    }
+    
     // Get a reference to the Cloud Function
     const sendEmail = httpsCallable(functions, 'sendAcknowledgmentEmail');
     
