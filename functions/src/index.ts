@@ -7,8 +7,7 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-import { onCall } from "firebase-functions/v1/https";
-import { logger } from "firebase-functions";
+import * as functions from "firebase-functions";
 import * as nodemailer from "nodemailer";
 import * as dotenv from "dotenv";
 
@@ -38,7 +37,7 @@ interface EmailData {
 
 // Check if environment variables are set
 if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-  logger.error("Missing email credentials in environment variables");
+  functions.logger.error("Missing email credentials in environment variables");
 }
 
 // Configure email transporter
@@ -50,11 +49,9 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const sendAcknowledgmentEmail = onCall(async (request) => {
-  const data = request.data as EmailData;
-  
+export const sendAcknowledgmentEmail = functions.https.onCall(async (data: EmailData, context) => {
   // Log the function call
-  logger.info("Sending acknowledgment email", {
+  functions.logger.info("Sending acknowledgment email", {
     tutorName: data.tutorName,
     recipientEmail: data.to,
     numTimeSlots: data.timeSlots.length,
@@ -62,7 +59,7 @@ export const sendAcknowledgmentEmail = onCall(async (request) => {
 
   // Check if email credentials are available
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-    logger.error("Email credentials not configured");
+    functions.logger.error("Email credentials not configured");
     throw new Error("Email service not properly configured");
   }
 
@@ -88,7 +85,7 @@ export const sendAcknowledgmentEmail = onCall(async (request) => {
       html: emailContent,
     };
     
-    logger.info("Attempting to send email with options:", {
+    functions.logger.info("Attempting to send email with options:", {
       from: mailOptions.from,
       to: mailOptions.to,
       subject: mailOptions.subject
@@ -96,21 +93,21 @@ export const sendAcknowledgmentEmail = onCall(async (request) => {
     
     await transporter.sendMail(mailOptions);
 
-    logger.info("Email sent successfully", {
+    functions.logger.info("Email sent successfully", {
       to: data.to,
       tutorName: data.tutorName,
     });
 
     return {success: true, message: "Email sent successfully"};
   } catch (error) {
-    logger.error("Failed to send email", {
+    functions.logger.error("Failed to send email", {
       error,
       to: data.to,
       tutorName: data.tutorName,
     });
 
     if (error instanceof Error) {
-      logger.error("Error details:", {
+      functions.logger.error("Error details:", {
         message: error.message,
         stack: error.stack
       });
