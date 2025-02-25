@@ -38,30 +38,47 @@ export const sendAcknowledgmentEmail = async (data: AcknowledgmentEmailData) => 
       };
     }
     
+    // Check if functions is properly initialized
+    if (!functions) {
+      console.error('Firebase Functions not properly initialized');
+      return {
+        success: false,
+        error: 'Firebase Functions not available'
+      };
+    }
+    
     // Get a reference to the Cloud Function
-    const sendEmail = httpsCallable(functions, 'sendAcknowledgmentEmail');
-    
-    // Prepare the data for the function call
-    const functionData = {
-      to: data.professorEmail,
-      tutorName: data.tutorName,
-      timeSlots: data.timeSlots.map(slot => ({
-        date: slot.date.toDate().toLocaleDateString(),
-        start: slot.start,
-        end: slot.end
-      }))
-    };
-    
-    console.log('Calling Cloud Function with data:', functionData);
-    
-    // Call the Cloud Function
-    const result = await sendEmail(functionData);
-    
-    console.log('Email function result:', result.data);
-    return { 
-      success: true,
-      data: result.data
-    };
+    try {
+      const sendEmail = httpsCallable(functions, 'sendAcknowledgmentEmail');
+      
+      // Prepare the data for the function call
+      const functionData = {
+        to: data.professorEmail,
+        tutorName: data.tutorName,
+        timeSlots: data.timeSlots.map(slot => ({
+          date: slot.date.toDate().toLocaleDateString(),
+          start: slot.start,
+          end: slot.end
+        }))
+      };
+      
+      console.log('Calling Cloud Function with data:', functionData);
+      
+      // Call the Cloud Function
+      const result = await sendEmail(functionData);
+      
+      console.log('Email function result:', result.data);
+      return { 
+        success: true,
+        data: result.data
+      };
+    } catch (functionError) {
+      console.error('Error with Cloud Function:', functionError);
+      return {
+        success: false,
+        error: functionError instanceof Error ? functionError.message : 'Error calling Cloud Function'
+      };
+    }
   } catch (error) {
     console.error('Error sending acknowledgment email:', error);
     

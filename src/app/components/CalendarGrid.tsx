@@ -5,15 +5,13 @@ import {
   CalendarEntry, 
   TutorResponse, 
   AvailabilityStatus,
-  STATUS_COLORS,
-  TimeSlot
+  STATUS_COLORS 
 } from '@/types/calendar';
 import { useAuth } from '@/contexts/AuthContext';
-import { doc, updateDoc, Timestamp, deleteDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Dialog } from '@headlessui/react';
 import { CheckIcon, XMarkIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { sendAcknowledgmentEmail } from '@/lib/emailFunctions';
 
 interface User {
   id: string;
@@ -68,23 +66,6 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
   });
   const [error, setError] = useState<string | null>(null);
   const [rowNotifications, setRowNotifications] = useState<RowNotification[]>([]);
-  const [pendingAcknowledgments, setPendingAcknowledgments] = useState<{[entryId: string]: boolean}>({});
-  const [reviewDialog, setReviewDialog] = useState<{
-    isOpen: boolean;
-    entries: {
-      entryId: string;
-      date: Timestamp;
-      timeSlot: TimeSlot;
-      professorId: string;
-      professorEmail: string;
-    }[];
-    isSubmitting: boolean;
-  }>({
-    isOpen: false,
-    entries: [],
-    isSubmitting: false
-  });
-  const [professorEmails, setProfessorEmails] = useState<{[id: string]: string}>({});
 
   // Sort tutors by column index
   const sortedTutors = [...tutors]
@@ -217,128 +198,22 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
   const handleTutorAcknowledgment = async (entryId: string) => {
     if (!user || userRole !== 'tutor') return;
 
-    setPendingAcknowledgments(prev => ({
-      ...prev,
-      [entryId]: true
-    }));
-  };
-
-  const handleSubmitAcknowledgments = (professorId: string) => {
-    if (!user || userRole !== 'tutor') return;
-
-    console.log('Submitting acknowledgments for professor:', professorId);
-    console.log('Current professorEmails state:', professorEmails);
-    console.log('Professor email for this ID:', professorEmails[professorId]);
-    
-    if (!professorEmails[professorId]) {
-      console.error('Professor email not found for ID:', professorId);
-      setError('Professor email not found. Please try again later.');
-      return;
-    }
-    
-    // Get only entries for this specific professor that have pending acknowledgments
-    const pendingEntries = entries
-      .filter(entry => 
-        entry.professorId === professorId && 
-        pendingAcknowledgments[entry.id] &&
-        entry.confirmation.selectedTutorId === user.uid &&
-        !entry.confirmation.tutorAcknowledged
-      )
-      .map(entry => ({
-        entryId: entry.id,
-        date: entry.date,
-        timeSlot: entry.timeSlot,
-        professorId: entry.professorId,
-        professorEmail: professorEmails[entry.professorId] || ''
-      }));
-
-    console.log('Pending entries to acknowledge:', pendingEntries);
-    
-    if (pendingEntries.length === 0) {
-      console.warn('No pending entries to acknowledge');
-      setError('No pending entries to acknowledge');
-      return;
-    }
-    
-    setReviewDialog({
-      isOpen: true,
-      entries: pendingEntries,
-      isSubmitting: false
-    });
-  };
-
-  const handleConfirmAcknowledgments = async () => {
-    if (!user || userRole !== 'tutor' || reviewDialog.entries.length === 0) return;
-
     try {
-      setReviewDialog(prev => ({ ...prev, isSubmitting: true }));
-      
-      console.log('Starting acknowledgment process...');
-      const professorEmail = reviewDialog.entries[0].professorEmail;
-      const tutorName = user.displayName || user.email || 'Unknown Tutor';
-      
-      console.log('Professor email:', professorEmail);
-      console.log('Tutor name:', tutorName);
-      console.log('Time slots to acknowledge:', reviewDialog.entries.length);
-      
-      if (!professorEmail) {
-        console.error('Missing professor email address');
-        setError('Cannot send acknowledgment: Professor email address is missing');
-        setReviewDialog(prev => ({ ...prev, isSubmitting: false }));
-        return;
-      }
-
-      // Send acknowledgment email
-      const emailResult = await sendAcknowledgmentEmail({
-        professorEmail: professorEmail,
-        tutorName: tutorName,
-        timeSlots: reviewDialog.entries.map(entry => ({
-          date: entry.date,
-          start: entry.timeSlot.start,
-          end: entry.timeSlot.end
-        }))
+      const entryRef = doc(db, 'calendarEntries', entryId);
+      await updateDoc(entryRef, {
+        'confirmation.tutorAcknowledged': true,
+        'confirmation.status': 'acknowledged',
+        updatedAt: Timestamp.fromDate(new Date())
       });
-      
-      console.log('Email function completed with result:', emailResult);
-      
-      if (!emailResult.success) {
-        console.error('Email sending failed:', emailResult.error);
-        setError(`Failed to send email: ${emailResult.error || 'Unknown error'}`);
-        setReviewDialog(prev => ({ ...prev, isSubmitting: false }));
-        return;
-      }
 
-      // Update each entry in Firestore to mark it as acknowledged
-      console.log('Updating Firestore entries...');
-      try {
-        await Promise.all(reviewDialog.entries.map(async (entry) => {
-          const entryRef = doc(db, 'calendarEntries', entry.entryId);
-          await updateDoc(entryRef, {
-            'confirmation.tutorAcknowledged': true,
-            'confirmation.acknowledgedAt': Timestamp.fromDate(new Date()),
-            updatedAt: Timestamp.fromDate(new Date())
-          });
-          console.log('Updated entry:', entry.entryId);
-        }));
-      } catch (updateError) {
-        console.error('Error updating entries:', updateError);
-        setError('Email was sent but failed to update entries in the database');
-        setReviewDialog(prev => ({ ...prev, isSubmitting: false }));
-        return;
-      }
+      // Clear notification when tutor acknowledges
+      setRowNotifications(prev => prev.filter(n => n.entryId !== entryId));
 
-      // Clear pending acknowledgments and close dialog
-      setPendingAcknowledgments({});
-      setReviewDialog(prev => ({ ...prev, isOpen: false, isSubmitting: false }));
-      
-      console.log('Acknowledgment process completed successfully');
-
-      // Notify parent to update entries
-      reviewDialog.entries.forEach(entry => onEntryUpdate(entry.entryId));
+      // Notify parent to set up temporary listener
+      onEntryUpdate(entryId);
     } catch (error) {
-      console.error('Error in acknowledgment process:', error);
-      setError('Failed to complete acknowledgment process');
-      setReviewDialog(prev => ({ ...prev, isSubmitting: false }));
+      console.error('Error acknowledging confirmation:', error);
+      setError('Failed to acknowledge confirmation');
     }
   };
 
@@ -394,61 +269,6 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
       color: '#cc6633' 
     };
   };
-
-  const getPendingCountForProfessor = () => {
-    return Object.keys(pendingAcknowledgments).length;
-  };
-
-  // Add this effect to fetch professor emails
-  useEffect(() => {
-    const fetchProfessorEmail = async (id: string) => {
-      console.log('Fetching email for professor ID:', id);
-      
-      // Skip if we already have this professor's email
-      if (professorEmails[id]) {
-        console.log('Already have email for professor:', id, professorEmails[id]);
-        return;
-      }
-      
-      try {
-        const userDoc = await getDoc(doc(db, 'users', id));
-        console.log('Professor user document exists:', userDoc.exists());
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          console.log('Professor user data:', userData);
-          
-          if (userData.email) {
-            setProfessorEmails(prev => {
-              const updated = {
-                ...prev,
-                [id]: userData.email
-              };
-              console.log('Updated professorEmails state:', updated);
-              return updated;
-            });
-          } else {
-            console.error('Professor document exists but has no email field:', id);
-          }
-        } else {
-          console.warn('Professor document not found for ID:', id);
-        }
-      } catch (error) {
-        console.error('Error fetching professor email:', error);
-      }
-    };
-
-    // Fetch email for the current professor
-    if (professorId) {
-      fetchProfessorEmail(professorId);
-    }
-    
-    // Also fetch emails for all professors in entries
-    const uniqueProfessorIds = Array.from(new Set(entries.map(entry => entry.professorId)));
-    uniqueProfessorIds.forEach(id => {
-      if (id) fetchProfessorEmail(id);
-    });
-  }, [professorId, entries, professorEmails]);
 
   return (
     <div className="overflow-x-auto">
@@ -591,28 +411,6 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
               </td>
             </tr>
           ))}
-          
-          {/* New Acknowledgment Summary Row */}
-          {userRole === 'tutor' && user?.uid && getPendingCountForProfessor() > 0 && (
-            <tr className="bg-indigo-50">
-              {user?.uid === professorId && (
-                <td className="w-12 px-2 py-4"></td>
-              )}
-              <td colSpan={sortedTutors.length + 2} className="px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-indigo-700 font-medium">
-                    {getPendingCountForProfessor()} pending acknowledgment{getPendingCountForProfessor() !== 1 ? 's' : ''}
-                  </span>
-                  <button
-                    onClick={() => handleSubmitAcknowledgments(professorId)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Review & Send Acknowledgments
-                  </button>
-                </div>
-              </td>
-            </tr>
-          )}
         </tbody>
       </table>
 
@@ -737,79 +535,6 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
               >
                 Confirm
               </button>
-            </div>
-          </Dialog.Panel>
-        </div>
-      </Dialog>
-
-      {/* Review Acknowledgments Dialog */}
-      <Dialog
-        open={reviewDialog.isOpen}
-        onClose={() => setReviewDialog(prev => ({ ...prev, isOpen: false }))}
-        className="relative z-50"
-      >
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="mx-auto max-w-2xl w-full rounded-lg bg-white p-6 shadow-xl">
-            <Dialog.Title className="text-lg font-medium text-gray-900 mb-2">
-              Review Acknowledgments
-            </Dialog.Title>
-            
-            <p className="text-sm text-gray-500 mb-6">
-              Upon confirmation, an email will be sent to the professor confirming your acknowledgment of their time slots.
-            </p>
-            
-            <div className="mt-4 space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  <h3 className="text-sm font-medium text-gray-700">
-                    {reviewDialog.entries[0]?.professorEmail}
-                  </h3>
-                </div>
-                <ul className="space-y-2 ml-7">
-                  {reviewDialog.entries.map(entry => (
-                    <li key={entry.entryId} className="text-sm text-gray-600">
-                      {new Date(entry.date.seconds * 1000).toLocaleDateString()},{' '}
-                      {entry.timeSlot.start} - {entry.timeSlot.end}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="mt-6 flex items-center justify-between">
-                <span className="text-sm text-gray-500 italic">
-                  Clicking &quot;Confirm &amp; Send&quot; will notify the professor via email
-                </span>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => setReviewDialog(prev => ({ ...prev, isOpen: false }))}
-                    disabled={reviewDialog.isSubmitting}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleConfirmAcknowledgments}
-                    disabled={reviewDialog.isSubmitting}
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 flex items-center"
-                  >
-                    {reviewDialog.isSubmitting ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </>
-                    ) : (
-                      'Confirm & Send'
-                    )}
-                  </button>
-                </div>
-              </div>
             </div>
           </Dialog.Panel>
         </div>

@@ -1,7 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
+import { getFunctions, Functions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -29,7 +29,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // Initialize Functions - only in browser environment
-let functions;
+let functions: Functions | null = null;
 if (typeof window !== 'undefined') {
   try {
     functions = getFunctions(app, 'us-central1');
@@ -38,8 +38,6 @@ if (typeof window !== 'undefined') {
   }
 } else {
   console.log("Skipping Firebase Functions initialization in non-browser environment");
-  // Create a mock functions object for SSR
-  functions = {} as ReturnType<typeof getFunctions>;
 }
 
 // Set auth persistence to browser local storage - only in browser environment
