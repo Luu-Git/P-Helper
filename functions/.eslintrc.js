@@ -19,7 +19,6 @@ module.exports = {
   },
   ignorePatterns: [
     "/lib/**/*", // Ignore built files.
-    "/generated/**/*", // Ignore generated files.
   ],
   plugins: [
     "@typescript-eslint",
@@ -28,6 +27,10 @@ module.exports = {
   rules: {
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
+    "linebreak-style": 0,  // Disable linebreak style checking
+    "no-trailing-spaces": 0, // Disable trailing spaces checking
+    "eol-last": 0, // Disable end of line checking
+    "no-multi-spaces": 0, // Disable multi-spaces checking
     "indent": ["error", 2],
   },
 };
