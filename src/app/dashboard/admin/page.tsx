@@ -111,10 +111,19 @@ export default function AdminDashboard() {
 
   // Cleanup listeners on unmount
   useEffect(() => {
+    // Nothing to do on mount
+    
+    // Cleanup function for unmount
     return () => {
-      // Copy the ref value to a local variable to avoid the exhaustive-deps warning
-      const currentUnsubscribers = unsubscribeRefs.current;
-      Object.values(currentUnsubscribers).forEach(unsubscribe => unsubscribe());
+      // Store ref in a local variable to avoid the exhaustive-deps warning
+      const currentUnsubscribers = { ...unsubscribeRefs.current };
+      
+      // Clean up each listener
+      for (const key in currentUnsubscribers) {
+        if (Object.prototype.hasOwnProperty.call(currentUnsubscribers, key)) {
+          currentUnsubscribers[key]();
+        }
+      }
     };
   }, []);
 
@@ -179,7 +188,7 @@ export default function AdminDashboard() {
           </svg>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Action Required</h2>
           <p className="text-gray-600 mb-8">
-            You've successfully created a new user account. To continue managing users, you need to sign back in with your admin account.
+            You&apos;ve successfully created a new user account. To continue managing users, you need to sign back in with your admin account.
           </p>
           <button
             onClick={handleSignOut}

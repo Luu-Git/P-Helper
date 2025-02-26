@@ -225,10 +225,19 @@ export default function Calendar() {
 
   // Cleanup listeners on unmount
   useEffect(() => {
+    // Nothing to do on mount
+    
+    // Cleanup function for unmount
     return () => {
-      // Copy the ref value to a local variable to avoid the exhaustive-deps warning
-      const currentUnsubscribers = unsubscribeRefs.current;
-      Object.values(currentUnsubscribers).forEach(unsubscribe => unsubscribe());
+      // Store ref in a local variable to avoid the exhaustive-deps warning
+      const currentUnsubscribers = { ...unsubscribeRefs.current };
+      
+      // Clean up each listener
+      for (const key in currentUnsubscribers) {
+        if (Object.prototype.hasOwnProperty.call(currentUnsubscribers, key)) {
+          currentUnsubscribers[key]();
+        }
+      }
     };
   }, []);
 
