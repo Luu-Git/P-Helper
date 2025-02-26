@@ -112,7 +112,9 @@ export default function AdminDashboard() {
   // Cleanup listeners on unmount
   useEffect(() => {
     return () => {
-      Object.values(unsubscribeRefs.current).forEach(unsubscribe => unsubscribe());
+      // Copy the ref value to a local variable to avoid the exhaustive-deps warning
+      const currentUnsubscribers = unsubscribeRefs.current;
+      Object.values(currentUnsubscribers).forEach(unsubscribe => unsubscribe());
     };
   }, []);
 
@@ -375,11 +377,11 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <Dialog.Panel className="mx-auto max-w-sm rounded-lg bg-white p-6 shadow-xl">
-            <Dialog.Title className="text-lg font-medium text-gray-900 mb-4">
+            <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
               Delete User
             </Dialog.Title>
             <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to delete the user "{deleteDialog.userEmail}"? This action cannot be undone.
+              Are you sure you want to delete the user &quot;{deleteDialog.userEmail}&quot;? This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <button

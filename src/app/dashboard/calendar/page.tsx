@@ -226,7 +226,9 @@ export default function Calendar() {
   // Cleanup listeners on unmount
   useEffect(() => {
     return () => {
-      Object.values(unsubscribeRefs.current).forEach(unsubscribe => unsubscribe());
+      // Copy the ref value to a local variable to avoid the exhaustive-deps warning
+      const currentUnsubscribers = unsubscribeRefs.current;
+      Object.values(currentUnsubscribers).forEach(unsubscribe => unsubscribe());
     };
   }, []);
 

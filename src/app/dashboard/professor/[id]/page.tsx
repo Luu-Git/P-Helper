@@ -151,7 +151,7 @@ export default function ProfessorPage() {
       {/* Main Content - Expanded width */}
       <div className="flex-1 space-y-4 min-w-0">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">{professor?.name}'s Students</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{professor?.name}&apos;s Students</h1>
           {!isAddingStudent ? (
             <button
               className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -207,7 +207,7 @@ export default function ProfessorPage() {
           <div className="p-4">
             {students.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
-                No students found. Click "Add Student" to get started.
+                No students found. Click &quot;Add Student&quot; to get started.
               </div>
             ) : (
               <StudentList 
