@@ -5,4 +5,8 @@ README.md
 .firebase/
 firebase.json
 firestore.rules
-firestore.indexes.json 
+firestore.indexes.json
+.firebaserc
+**/firebase-debug.log
+**/firebase-debug.*.log
+**/ui-debug.log 
