@@ -2,13 +2,14 @@
 
 import { useEffect, useState, Fragment } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { INITIAL_PROFESSORS } from '@/app/components/ProfessorGrid';
 import StudentList from '@/app/components/StudentList';
 import Link from 'next/link';
 import { Dialog, Transition } from '@headlessui/react';
 import { useDebounce } from '@/lib/hooks';
+import { TrashIcon } from '@heroicons/react/24/outline';
 
 interface FirestoreTimestamp {
   seconds: number;
@@ -61,7 +62,7 @@ export default function ProfessorPage() {
   const [professors, setProfessors] = useState<Professor[]>([]);
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   
-  // State for dialogs
+  // State for add dialogs
   const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
   const [firstName, setFirstName] = useState('');
@@ -70,6 +71,15 @@ export default function ProfessorPage() {
     firstName: '',
     lastName: ''
   });
+
+  // State for delete dialogs
+  const [isDeleteOptionsDialogOpen, setIsDeleteOptionsDialogOpen] = useState(false);
+  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
+  const [isDeleteSingleDialogOpen, setIsDeleteSingleDialogOpen] = useState(false);
+  const [isDeleteConfirmDialogOpen, setIsDeleteConfirmDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch professors once
   useEffect(() => {
@@ -245,6 +255,48 @@ export default function ProfessorPage() {
     );
   };
 
+  // Delete a single student
+  const handleDeleteStudent = async (student: Student) => {
+    setIsDeleting(true);
+    try {
+      await deleteDoc(doc(db, 'students', student.id));
+      setStudents(prev => prev.filter(s => s.id !== student.id));
+      setStudentToDelete(null);
+      setIsDeleteConfirmDialogOpen(false);
+      setIsDeleteSingleDialogOpen(false);
+    } catch (err) {
+      console.error('Error deleting student:', err);
+      setError('Failed to delete student');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Delete all students for the current professor
+  const handleDeleteAllStudents = async () => {
+    if (deleteConfirmText !== 'delete all students') {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // Delete each student document
+      const deletePromises = students.map(student => 
+        deleteDoc(doc(db, 'students', student.id))
+      );
+      
+      await Promise.all(deletePromises);
+      setStudents([]);
+      setIsDeleteAllDialogOpen(false);
+      setDeleteConfirmText('');
+    } catch (err) {
+      console.error('Error deleting all students:', err);
+      setError('Failed to delete all students');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
@@ -275,6 +327,12 @@ export default function ProfessorPage() {
       <div className="flex justify-between items-center mb-2">
         <h1 className="text-2xl font-semibold text-gray-900 pl-1">{professor?.name}&apos;s Students</h1>
         <div className="flex items-center gap-3">
+          <button
+            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            onClick={() => setIsDeleteOptionsDialogOpen(true)}
+          >
+            Delete Student(s)
+          </button>
           <button
             className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             onClick={() => setIsOptionsDialogOpen(true)}
@@ -552,6 +610,328 @@ export default function ProfessorPage() {
                       </button>
                     </div>
                   </form>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Delete Options Dialog */}
+      <Transition appear show={isDeleteOptionsDialogOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-10" onClose={() => setIsDeleteOptionsDialogOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900"
+                  >
+                    Delete Student(s)
+                  </Dialog.Title>
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-500">
+                      Choose how you would like to delete students from this professor.
+                    </p>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      className="inline-flex flex-col items-center justify-center rounded-md border border-transparent bg-amber-600 px-4 py-4 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                      onClick={() => {
+                        setIsDeleteOptionsDialogOpen(false);
+                        setIsDeleteSingleDialogOpen(true);
+                      }}
+                    >
+                      <TrashIcon className="h-6 w-6 mb-2" />
+                      Delete a Single Student
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex flex-col items-center justify-center rounded-md border border-transparent bg-red-600 px-4 py-4 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                      onClick={() => {
+                        setIsDeleteOptionsDialogOpen(false);
+                        setIsDeleteAllDialogOpen(true);
+                      }}
+                    >
+                      <TrashIcon className="h-6 w-6 mb-2" />
+                      Delete All Students
+                    </button>
+                  </div>
+
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+                      onClick={() => setIsDeleteOptionsDialogOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Delete All Students Confirmation Dialog */}
+      <Transition appear show={isDeleteAllDialogOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-10" onClose={() => setIsDeleteAllDialogOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900"
+                  >
+                    Delete All Students
+                  </Dialog.Title>
+                  <div className="mt-4">
+                    <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <TrashIcon className="h-5 w-5 text-red-400" />
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-red-700">
+                            Are you sure you want to delete all students for {professor?.name}? This action cannot be undone.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-4">
+                      To confirm, please type &quot;delete all students&quot; in the field below:
+                    </p>
+                    <input
+                      type="text"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Type 'delete all students' to confirm"
+                    />
+                  </div>
+
+                  <div className="mt-6 flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+                      onClick={() => {
+                        setIsDeleteAllDialogOpen(false);
+                        setDeleteConfirmText('');
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deleteConfirmText !== 'delete all students' || isDeleting}
+                      className={`inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                        deleteConfirmText === 'delete all students' && !isDeleting
+                          ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
+                          : 'bg-red-300 cursor-not-allowed'
+                      }`}
+                      onClick={handleDeleteAllStudents}
+                    >
+                      {isDeleting ? 'Deleting...' : 'Delete All Students'}
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Delete Single Student Dialog */}
+      <Transition appear show={isDeleteSingleDialogOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-10" onClose={() => setIsDeleteSingleDialogOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900"
+                  >
+                    Delete a Student
+                  </Dialog.Title>
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-500 mb-4">
+                      Select a student to delete from {professor?.name}&apos;s class:
+                    </p>
+                    <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-md">
+                      {students.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          No students to delete
+                        </div>
+                      ) : (
+                        <ul className="divide-y divide-gray-200">
+                          {students.map((student) => (
+                            <li key={student.id} className="p-3 hover:bg-gray-50">
+                              <div className="flex items-center">
+                                <button
+                                  className="text-red-500 hover:text-red-700 group"
+                                  onClick={() => {
+                                    setStudentToDelete(student);
+                                    setIsDeleteConfirmDialogOpen(true);
+                                  }}
+                                >
+                                  <TrashIcon className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                                </button>
+                                <span className="ml-3 text-gray-900">{student.name}</span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+                      onClick={() => setIsDeleteSingleDialogOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Delete Single Student Confirmation Dialog */}
+      <Transition appear show={isDeleteConfirmDialogOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-10" onClose={() => setIsDeleteConfirmDialogOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900"
+                  >
+                    Confirm Deletion
+                  </Dialog.Title>
+                  <div className="mt-4">
+                    <div className="bg-red-50 border-l-4 border-red-400 p-4">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <TrashIcon className="h-5 w-5 text-red-400" />
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-red-700">
+                            Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+                      onClick={() => setIsDeleteConfirmDialogOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeleting}
+                      className="inline-flex justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                      onClick={() => studentToDelete && handleDeleteStudent(studentToDelete)}
+                    >
+                      {isDeleting ? 'Deleting...' : 'Delete Student'}
+                    </button>
+                  </div>
                 </Dialog.Panel>
               </Transition.Child>
             </div>
