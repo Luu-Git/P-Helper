@@ -28,6 +28,7 @@ interface Student {
   notes?: {
     [columnIndex: number]: Note[];
   };
+  professorId: string;
 }
 
 interface Tutor {
@@ -40,6 +41,7 @@ interface Tutor {
 interface StudentListProps {
   students: Student[];
   onStudentUpdate: (updatedStudent: Student) => void;
+  highlightStudentId?: string | null;
 }
 
 interface NoteDialogProps {
@@ -188,12 +190,13 @@ function NoteDialog({ isOpen, onClose, onSave, initialContent = '', studentName 
   );
 }
 
-export default function StudentList({ students, onStudentUpdate }: StudentListProps) {
+export default function StudentList({ students, onStudentUpdate, highlightStudentId }: StudentListProps) {
   const { user } = useAuth();
   const [animatingAttendance, setAnimatingAttendance] = useState<{[key: string]: number}>({});
   const [expandedNote, setExpandedNote] = useState<{studentId: string, columnIndex: number} | null>(null);
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [highlightedStudent, setHighlightedStudent] = useState<string | null>(null);
   const [noteDialog, setNoteDialog] = useState<{
     isOpen: boolean;
     studentId: string;
@@ -206,6 +209,20 @@ export default function StudentList({ students, onStudentUpdate }: StudentListPr
     columnIndex: 0,
     studentName: '',
   });
+
+  // Set up the highlight effect when highlightStudentId changes
+  useEffect(() => {
+    if (highlightStudentId) {
+      setHighlightedStudent(highlightStudentId);
+      
+      // Remove the highlight after 3 seconds
+      const timer = setTimeout(() => {
+        setHighlightedStudent(null);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [highlightStudentId]);
 
   useEffect(() => {
     const fetchTutors = async () => {
@@ -336,6 +353,9 @@ export default function StudentList({ students, onStudentUpdate }: StudentListPr
     }
   };
 
+  // Define highlight animation class
+  const highlightClass = "bg-yellow-100 transition-colors duration-500";
+
   if (loading) {
     return <div>Loading tutors...</div>;
   }
@@ -348,7 +368,7 @@ export default function StudentList({ students, onStudentUpdate }: StudentListPr
   return (
     <div className="relative">
       {/* Tutor Names Header */}
-      <div className="grid grid-cols-[300px,100px,1fr] gap-4 mb-2">
+      <div className="grid grid-cols-[350px,80px,1fr] gap-4 mb-2">
         <div className="text-sm font-medium text-gray-500">Student Name</div>
         <div className="text-sm font-medium text-gray-500 text-center">Attendance</div>
         <div className="grid grid-cols-4 gap-4">
@@ -361,7 +381,7 @@ export default function StudentList({ students, onStudentUpdate }: StudentListPr
       </div>
 
       {/* Student List */}
-      <div className="space-y-0.5">
+      <div className="space-y-2">
         {students.map((student, index) => {
           const displayAttendance = student.id in animatingAttendance
             ? Math.round(animatingAttendance[student.id] * 10) / 10
@@ -370,14 +390,14 @@ export default function StudentList({ students, onStudentUpdate }: StudentListPr
           return (
             <div 
               key={student.id} 
-              className={`grid grid-cols-[300px,100px,1fr] gap-4 items-center ${
+              className={`grid grid-cols-[350px,80px,1fr] gap-4 items-center ${
                 index % 2 === 0 ? 'bg-gray-50' : 'bg-white'
-              } hover:bg-indigo-50 transition-colors duration-150 rounded-lg`}
+              } hover:bg-indigo-50 transition-colors duration-150 rounded-lg ${
+                highlightedStudent === student.id ? highlightClass : ''
+              }`}
             >
               {/* Student Name */}
-              <div className="text-sm font-medium px-4 py-3 rounded-l-lg">
-                {student.name}
-              </div>
+              <div className="p-3 font-medium text-gray-900">{student.name}</div>
 
               {/* Attendance Controls */}
               <div className="flex items-center justify-center space-x-1">
@@ -404,7 +424,7 @@ export default function StudentList({ students, onStudentUpdate }: StudentListPr
               </div>
 
               {/* Tutor Notes Grid */}
-              <div className="grid grid-cols-4 gap-4 pr-4">
+              <div className="grid grid-cols-4 gap-2">
                 {[0, 1, 2, 3].map((columnIndex) => {
                   const notes = student.notes?.[columnIndex] || [];
                   const latestNote = notes[notes.length - 1];
