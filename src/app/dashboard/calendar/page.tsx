@@ -22,7 +22,7 @@ import {
   STATUS_COLORS 
 } from '@/types/calendar';
 import { Dialog } from '@headlessui/react';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import CalendarGrid from '@/app/components/CalendarGrid';
 import TutorHoursOverview from '@/app/components/TutorHoursOverview';
 
@@ -423,6 +423,11 @@ export default function Calendar() {
     }, {} as { [key: string]: CalendarEntry[] });
   }, [filteredEntries]);
 
+  const [tooltips, setTooltips] = useState({
+    confirmed: false,
+    acknowledged: false
+  });
+
   if (loading || !tutors.length || !professors.length) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -475,6 +480,36 @@ export default function Calendar() {
                   />
                   <span className="text-sm text-gray-600 capitalize">
                     {status.replace(/_/g, ' ')}
+                    {status === 'confirmed' && (
+                      <span className="relative inline-block ml-1">
+                        <QuestionMarkCircleIcon 
+                          className="h-5 w-5 inline text-gray-400 hover:text-gray-600 cursor-pointer"
+                          onMouseEnter={() => setTooltips(prev => ({ ...prev, confirmed: true }))}
+                          onMouseLeave={() => setTooltips(prev => ({ ...prev, confirmed: false }))}
+                        />
+                        {tooltips.confirmed && (
+                          <div className="absolute z-10 w-52 p-2 bg-gray-800 text-white text-xs rounded shadow-lg -right-4 top-7">
+                            Professor has selected this tutor and is waiting for acknowledgement
+                            <div className="absolute -top-1 right-4 w-2 h-2 bg-gray-800 transform rotate-45"></div>
+                          </div>
+                        )}
+                      </span>
+                    )}
+                    {status === 'acknowledged' && (
+                      <span className="relative inline-block ml-1">
+                        <QuestionMarkCircleIcon 
+                          className="h-5 w-5 inline text-gray-400 hover:text-gray-600 cursor-pointer"
+                          onMouseEnter={() => setTooltips(prev => ({ ...prev, acknowledged: true }))}
+                          onMouseLeave={() => setTooltips(prev => ({ ...prev, acknowledged: false }))}
+                        />
+                        {tooltips.acknowledged && (
+                          <div className="absolute z-10 w-52 p-2 bg-gray-800 text-white text-xs rounded shadow-lg -right-4 top-7">
+                            Tutor has confirmed their selection and is aware of the assignment
+                            <div className="absolute -top-1 right-4 w-2 h-2 bg-gray-800 transform rotate-45"></div>
+                          </div>
+                        )}
+                      </span>
+                    )}
                   </span>
                 </div>
               ))}
