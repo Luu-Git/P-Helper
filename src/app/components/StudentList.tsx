@@ -354,7 +354,7 @@ export default function StudentList({ students, onStudentUpdate, highlightStuden
   };
 
   // Define highlight animation class
-  const highlightClass = "bg-blue-100 transition-colors duration-300";
+  const highlightClass = "bg-gradient-to-r from-blue-100 to-indigo-100";
 
   if (loading) {
     return <div>Loading tutors...</div>;
