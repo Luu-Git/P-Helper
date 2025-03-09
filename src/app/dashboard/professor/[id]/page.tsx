@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { Dialog, Transition } from '@headlessui/react';
 import { useDebounce } from '@/lib/hooks';
 import { TrashIcon } from '@heroicons/react/24/outline';
+import ExcelImportDialog from '@/app/components/ExcelImportDialog';
 
 interface FirestoreTimestamp {
   seconds: number;
@@ -65,6 +66,7 @@ export default function ProfessorPage() {
   // State for add dialogs
   const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
+  const [isExcelImportDialogOpen, setIsExcelImportDialogOpen] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [formErrors, setFormErrors] = useState({
@@ -80,6 +82,27 @@ export default function ProfessorPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Function to fetch students
+  const fetchStudents = async () => {
+    try {
+      const q = query(
+        collection(db, 'students'),
+        where('professorId', '==', professorId)
+      );
+      const snapshot = await getDocs(q);
+      const fetchedStudents = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Student));
+      setStudents(fetchedStudents);
+    } catch (err) {
+      console.error('Error fetching students:', err);
+      setError('Failed to load students');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch professors once
   useEffect(() => {
@@ -109,26 +132,6 @@ export default function ProfessorPage() {
   }, []);
 
   useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        const q = query(
-          collection(db, 'students'),
-          where('professorId', '==', professorId)
-        );
-        const snapshot = await getDocs(q);
-        const fetchedStudents = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Student));
-        setStudents(fetchedStudents);
-      } catch (err) {
-        console.error('Error fetching students:', err);
-        setError('Failed to load students');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStudents();
   }, [professorId]);
 
@@ -294,6 +297,30 @@ export default function ProfessorPage() {
       setError('Failed to delete all students');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Handle successful Excel import
+  const handleExcelImportSuccess = (count: number) => {
+    // Refresh the student list by fetching students again
+    try {
+      const q = query(
+        collection(db, 'students'),
+        where('professorId', '==', professorId)
+      );
+      getDocs(q).then(snapshot => {
+        const fetchedStudents = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Student));
+        setStudents(fetchedStudents);
+      }).catch(err => {
+        console.error('Error fetching students after Excel import:', err);
+        setError('Failed to refresh student list');
+      });
+    } catch (err) {
+      console.error('Error setting up query after Excel import:', err);
+      setError('Failed to refresh student list');
     }
   };
 
@@ -477,8 +504,7 @@ export default function ProfessorPage() {
                       className="inline-flex flex-col items-center justify-center rounded-md border border-transparent bg-amber-600 px-4 py-4 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
                       onClick={() => {
                         setIsOptionsDialogOpen(false);
-                        // This is a placeholder button for now
-                        console.log('Add multiple students clicked');
+                        setIsExcelImportDialogOpen(true);
                       }}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -938,6 +964,14 @@ export default function ProfessorPage() {
           </div>
         </Dialog>
       </Transition>
+
+      {/* Excel Import Dialog */}
+      <ExcelImportDialog
+        isOpen={isExcelImportDialogOpen}
+        onClose={() => setIsExcelImportDialogOpen(false)}
+        professorId={professorId}
+        onSuccess={handleExcelImportSuccess}
+      />
     </div>
   );
 } 
