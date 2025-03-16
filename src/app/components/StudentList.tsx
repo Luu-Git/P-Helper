@@ -209,11 +209,28 @@ export default function StudentList({ students, onStudentUpdate, highlightStuden
     columnIndex: 0,
     studentName: '',
   });
+  
+  // Add a ref map to track student elements
+  const studentRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
 
   // Set up the highlight effect when highlightStudentId changes
   useEffect(() => {
     if (highlightStudentId) {
       setHighlightedStudent(highlightStudentId);
+      
+      // Scroll to the highlighted student
+      const scrollToHighlightedStudent = () => {
+        const studentElement = studentRefs.current[highlightStudentId];
+        if (studentElement) {
+          studentElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
+      };
+      
+      // Scroll with a slight delay to ensure the DOM is ready
+      setTimeout(scrollToHighlightedStudent, 100);
       
       // Remove the highlight after 3 seconds
       const timer = setTimeout(() => {
@@ -390,6 +407,9 @@ export default function StudentList({ students, onStudentUpdate, highlightStuden
           return (
             <div 
               key={student.id} 
+              ref={el => {
+                studentRefs.current[student.id] = el;
+              }}
               className={`grid grid-cols-[350px,80px,1fr] gap-4 items-center ${
                 index % 2 === 0 ? 'bg-gray-50' : 'bg-white'
               } hover:bg-indigo-50 transition-colors duration-150 rounded-lg ${
