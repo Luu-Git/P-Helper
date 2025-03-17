@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatNameLastFirst } from '@/lib/utils'
 
 interface Student {
   id: number
@@ -62,7 +63,7 @@ export default function StudentCard({ student, onIncrement, onDecrement, onUpdat
   return (
     <div className="relative bg-card p-4 rounded-lg shadow-lg hover:bg-accent/5 transition-colors duration-200">
       <h3 className="text-lg font-semibold mb-2 cursor-pointer hover:text-primary" onClick={toggleEdit}>
-        {student.name}
+        {formatNameLastFirst(student.name)}
       </h3>
       <div className="flex items-center gap-4 mb-4">
         <button

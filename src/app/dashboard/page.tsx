@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import { INITIAL_PROFESSORS } from '@/app/components/ProfessorGrid';
 import Link from 'next/link';
 import { useDebounce } from '@/lib/hooks';
+import { formatNameLastFirst } from '@/lib/utils';
 
 interface Student {
   id: string;
@@ -171,7 +172,7 @@ export default function Dashboard() {
                           href={`/dashboard/professor/${result.professor.id}?highlightStudent=${student.id}`}
                           className="flex items-center justify-between hover:bg-gray-50 p-2 rounded-md"
                         >
-                          <span className="text-gray-900">{student.name}</span>
+                          <span className="text-gray-900">{formatNameLastFirst(student.name)}</span>
                           <div className="flex items-center text-sm text-gray-500">
                             <span className="mr-2">Attendance: {student.attendance}</span>
                             <svg className="h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">

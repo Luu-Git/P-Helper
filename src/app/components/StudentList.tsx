@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import TutorNote from './TutorNote';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
+import { formatNameLastFirst } from '@/lib/utils';
 
 interface FirestoreTimestamp {
   seconds: number;
@@ -137,7 +138,7 @@ function NoteDialog({ isOpen, onClose, onSave, initialContent = '', studentName 
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                 <Dialog.Title className="text-lg font-medium leading-6 text-gray-900">
-                  Add Note for {studentName}
+                  Add Note for {formatNameLastFirst(studentName)}
                 </Dialog.Title>
                 <div className="mt-4">
                   <textarea
@@ -417,7 +418,7 @@ export default function StudentList({ students, onStudentUpdate, highlightStuden
               }`}
             >
               {/* Student Name */}
-              <div className="p-3 font-medium text-gray-900">{student.name}</div>
+              <div className="p-3 font-medium text-gray-900">{formatNameLastFirst(student.name)}</div>
 
               {/* Attendance Controls */}
               <div className="flex items-center justify-center space-x-1">

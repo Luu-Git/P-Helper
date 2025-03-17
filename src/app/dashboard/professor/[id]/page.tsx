@@ -11,6 +11,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import { useDebounce } from '@/lib/hooks';
 import { TrashIcon } from '@heroicons/react/24/outline';
 import ExcelImportDialog from '@/app/components/ExcelImportDialog';
+import { formatNameLastFirst } from '@/lib/utils';
 
 interface FirestoreTimestamp {
   seconds: number;
@@ -94,7 +95,15 @@ export default function ProfessorPage() {
       const fetchedStudents = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Student));
+      } as Student))
+      .sort((a, b) => {
+        // Extract last name (assuming the last word in the name is the last name)
+        const lastNameA = a.name.split(' ').pop() || '';
+        const lastNameB = b.name.split(' ').pop() || '';
+        
+        // Sort by last name
+        return lastNameA.localeCompare(lastNameB);
+      });
       setStudents(fetchedStudents);
     } catch (err) {
       console.error('Error fetching students:', err);
@@ -425,7 +434,7 @@ export default function ProfessorPage() {
                             setSearchTerm('');
                           }}
                         >
-                          <span className="text-gray-900">{student.name}</span>
+                          <span className="text-gray-900">{formatNameLastFirst(student.name)}</span>
                           <div className="flex items-center text-sm text-gray-500">
                             <span className="mr-2">Attendance: {student.attendance}</span>
                             <svg className="h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -868,7 +877,7 @@ export default function ProfessorPage() {
                                 >
                                   <TrashIcon className="h-5 w-5 group-hover:scale-110 transition-transform" />
                                 </button>
-                                <span className="ml-3 text-gray-900">{student.name}</span>
+                                <span className="ml-3 text-gray-900">{formatNameLastFirst(student.name)}</span>
                               </div>
                             </li>
                           ))}
@@ -934,7 +943,7 @@ export default function ProfessorPage() {
                         </div>
                         <div className="ml-3">
                           <p className="text-sm text-red-700">
-                            Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.
+                            Are you sure you want to delete {studentToDelete && formatNameLastFirst(studentToDelete.name)}? This action cannot be undone.
                           </p>
                         </div>
                       </div>
