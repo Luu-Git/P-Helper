@@ -414,13 +414,28 @@ export default function Calendar() {
 
   // Group entries by professor
   const entriesByProfessor = useMemo(() => {
-    return filteredEntries.reduce((acc, entry) => {
+    const groupedEntries = filteredEntries.reduce((acc, entry) => {
       if (!acc[entry.professorId]) {
         acc[entry.professorId] = [];
       }
       acc[entry.professorId].push(entry);
       return acc;
     }, {} as { [key: string]: CalendarEntry[] });
+    
+    // Sort entries for each professor by date and then by start time
+    Object.keys(groupedEntries).forEach(professorId => {
+      groupedEntries[professorId].sort((a, b) => {
+        // First sort by date
+        const dateComparison = a.date.toMillis() - b.date.toMillis();
+        if (dateComparison === 0) {
+          // If same date, sort by start time
+          return a.timeSlot.start.localeCompare(b.timeSlot.start);
+        }
+        return dateComparison;
+      });
+    });
+    
+    return groupedEntries;
   }, [filteredEntries]);
 
   const [tooltips, setTooltips] = useState({
