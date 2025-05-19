@@ -25,6 +25,7 @@ import { Dialog } from '@headlessui/react';
 import { PlusIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import CalendarGrid from '@/app/components/CalendarGrid';
 import TutorHoursOverview from '@/app/components/TutorHoursOverview';
+import { createNotification, notificationExists } from '@/lib/notificationTracking';
 
 interface User {
   id: string;
@@ -322,6 +323,10 @@ export default function Calendar() {
         return;
       }
 
+      // Track created time slot IDs for notification
+      const createdTimeSlotIds: string[] = [];
+      const timeSlotDetails = [];
+
       // Create entries for all time slots
       for (const timeSlot of timeSlots) {
         const newEntryData = {
@@ -341,6 +346,14 @@ export default function Calendar() {
         };
 
         const docRef = await addDoc(collection(db, 'calendarEntries'), newEntryData);
+        createdTimeSlotIds.push(docRef.id);
+        
+        // Store simplified time slot details for notification
+        timeSlotDetails.push({
+          date: newEntry.date,
+          startTime: timeSlot.start,
+          endTime: timeSlot.end
+        });
 
         // Add new entry to local state and sort by date
         setEntries(prev => {
@@ -366,6 +379,39 @@ export default function Calendar() {
 
         // Set up temporary listener for real-time updates
         setupTemporaryListener(docRef.id);
+      }
+
+      // Create notification for all tutors (Scenario 1)
+      if (createdTimeSlotIds.length > 0) {
+        try {
+          // Get all tutors to notify
+          const tutorIds = tutors.map(tutor => tutor.id);
+          
+          // Check if we already have a notification for this professor today
+          const notificationAlreadyExists = await notificationExists({
+            scenario: 1, 
+            recipientIds: tutorIds
+          });
+          
+          if (!notificationAlreadyExists) {
+            // Create notification for Scenario 1: Professor creates time slots
+            await createNotification({
+              scenario: 1,
+              recipientIds: tutorIds,
+              professorId: user.uid,
+              professorName: professor.displayName || professor.email,
+              timeSlotIds: createdTimeSlotIds,
+              timeSlotDetails
+            });
+            
+            console.log('Created notification for new time slots');
+          } else {
+            console.log('Notification for time slots already exists, skipping');
+          }
+        } catch (notifyError) {
+          console.error('Error creating notification:', notifyError);
+          // Don't block the main flow if notification fails
+        }
       }
 
       setIsAddingEntry(false);

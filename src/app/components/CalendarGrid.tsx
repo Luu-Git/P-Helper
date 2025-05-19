@@ -12,6 +12,7 @@ import { doc, updateDoc, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Dialog } from '@headlessui/react';
 import { CheckIcon, XMarkIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { createNotification, notificationExists } from '@/lib/notificationTracking';
 
 interface User {
   id: string;
@@ -144,6 +145,53 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
         updatedAt: Timestamp.fromDate(new Date())
       });
 
+      // Get the entry to check for all tutors response (Scenario 3)
+      const entry = entries.find(e => e.id === responseDialog.entryId);
+      
+      if (entry) {
+        // After update, check if all tutors have responded
+        const updatedResponses = {
+          ...entry.tutorResponses,
+          [user.uid]: response
+        };
+        
+        const allTutorsResponded = tutors.every(tutor => 
+          updatedResponses[tutor.id] !== undefined
+        );
+        
+        // If all tutors have responded and no tutor is selected yet, create notification for professor
+        if (allTutorsResponded && !entry.confirmation.selectedTutorId && 
+            tutors.length === Object.keys(updatedResponses).length) {
+          try {
+            // Check if notification already exists
+            const notificationAlreadyExists = await notificationExists({
+              scenario: 3,
+              recipientIds: [entry.professorId]
+            });
+            
+            if (!notificationAlreadyExists) {
+              // Create notification for Scenario 3: All tutors provide availability
+              await createNotification({
+                scenario: 3,
+                recipientIds: [entry.professorId],
+                professorId: entry.professorId,
+                professorName: entry.professorName,
+                timeSlotIds: [entry.id],
+                timeSlotDetails: [{
+                  date: entry.date.toDate().toISOString().split('T')[0],
+                  startTime: entry.timeSlot.start,
+                  endTime: entry.timeSlot.end
+                }]
+              });
+              
+              console.log('Created notification for all tutors responded');
+            }
+          } catch (notifyError) {
+            console.error('Error creating notification for all tutors response:', notifyError);
+          }
+        }
+      }
+
       // Clear notification for this entry when tutor responds
       setRowNotifications(prev => prev.filter(n => n.entryId !== responseDialog.entryId));
 
@@ -169,7 +217,7 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
   };
 
   const handleProfessorConfirmation = async () => {
-    const { entryId, selectedTutorId } = confirmTutorDialog;
+    const { entryId, selectedTutorId, tutorName } = confirmTutorDialog;
     if (userRole !== 'professor') return;
 
     try {
@@ -186,6 +234,33 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
       
       // Close the confirmation dialog
       setConfirmTutorDialog(prev => ({ ...prev, isOpen: false }));
+      
+      // Get the entry to include in notification
+      const entry = entries.find(e => e.id === entryId);
+      
+      if (entry) {
+        try {
+          // Create notification for Scenario 2: Professor selects a tutor
+          await createNotification({
+            scenario: 2,
+            recipientIds: [selectedTutorId],
+            professorId: user?.uid || '',
+            professorName: user?.displayName || user?.email || 'A professor',
+            tutorId: selectedTutorId,
+            tutorName: tutorName,
+            timeSlotIds: [entryId],
+            timeSlotDetails: [{
+              date: entry.date.toDate().toISOString().split('T')[0],
+              startTime: entry.timeSlot.start,
+              endTime: entry.timeSlot.end
+            }]
+          });
+          
+          console.log('Created notification for tutor selection');
+        } catch (notifyError) {
+          console.error('Error creating notification for tutor selection:', notifyError);
+        }
+      }
       
       // Notify parent to set up temporary listener
       onEntryUpdate(entryId);
@@ -208,6 +283,33 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
 
       // Clear notification when tutor acknowledges
       setRowNotifications(prev => prev.filter(n => n.entryId !== entryId));
+
+      // Get the entry to include in notification
+      const entry = entries.find(e => e.id === entryId);
+      
+      if (entry) {
+        try {
+          // Create notification for Scenario 4: Tutor acknowledges selection
+          await createNotification({
+            scenario: 4,
+            recipientIds: [entry.professorId],
+            professorId: entry.professorId,
+            professorName: entry.professorName,
+            tutorId: user.uid,
+            tutorName: user.displayName || user.email || 'A tutor',
+            timeSlotIds: [entryId],
+            timeSlotDetails: [{
+              date: entry.date.toDate().toISOString().split('T')[0],
+              startTime: entry.timeSlot.start,
+              endTime: entry.timeSlot.end
+            }]
+          });
+          
+          console.log('Created notification for tutor acknowledgment');
+        } catch (notifyError) {
+          console.error('Error creating notification for tutor acknowledgment:', notifyError);
+        }
+      }
 
       // Notify parent to set up temporary listener
       onEntryUpdate(entryId);
