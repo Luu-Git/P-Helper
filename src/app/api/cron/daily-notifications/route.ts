@@ -4,27 +4,9 @@ import { NextResponse } from 'next/server';
 import { processNotifications } from '@/lib/emailProcessor';
 import { cleanupOldNotifications } from '@/lib/notificationTracking';
 
-// This route is protected by Vercel Cron Job authentication
+// This route is triggered by Vercel Cron Jobs
 export async function GET(request: Request) {
   try {
-    // Check for the authorization header that Vercel Cron Jobs use
-    const authHeader = request.headers.get('authorization');
-    
-    if (!process.env.CRON_SECRET) {
-      return NextResponse.json(
-        { error: 'CRON_SECRET environment variable is not set' },
-        { status: 500 }
-      );
-    }
-    
-    // Verify that this is a legitimate call from Vercel Cron Jobs
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized access' },
-        { status: 401 }
-      );
-    }
-    
     // Process all pending notifications
     const result = await processNotifications();
     

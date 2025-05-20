@@ -16,7 +16,6 @@ export async function POST(req: NextRequest) {
 
     console.log('Email send attempt:');
     console.log('- To:', to);
-    console.log('- From:', from || 'Acme <onboarding@resend.dev>');
     console.log('- Subject:', subject);
     console.log('- Environment:', process.env.NODE_ENV);
     console.log('- Resend API Key exists:', !!process.env.RESEND_API_KEY);
@@ -30,6 +29,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Handle test email redirection if needed
+    const testEmail = process.env.TEST_EMAIL;
+    const forceTestEmail = process.env.FORCE_TEST_EMAIL === 'true';
+    
+    // Determine recipients - if in test mode or force test email is enabled, use test email
+    let recipients = Array.isArray(to) ? to : [to];
+    if (testEmail && (process.env.NODE_ENV !== 'production' || process.env.EMAIL_TEST_MODE === 'true' || forceTestEmail)) {
+      console.log(`Redirecting all emails to test address: ${testEmail}`);
+      recipients = [testEmail];
+    }
+    
     // Use default Resend email in development mode, otherwise use the specified from address
     const fromEmail = (process.env.NODE_ENV !== 'production') 
       ? DEFAULT_FROM 
@@ -37,11 +47,11 @@ export async function POST(req: NextRequest) {
     
     console.log('Using from email:', fromEmail);
 
-    // Send the email using Resend - exact format from docs
+    // Send the email using Resend SDK directly
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
-        to: Array.isArray(to) ? to : [to], // Resend expects an array of recipients
+        to: recipients,
         subject,
         html: html || undefined,
         text: text || undefined,
@@ -52,15 +62,23 @@ export async function POST(req: NextRequest) {
       // Return appropriate response based on result
       if (error) {
         console.error('Resend API error:', error);
-        return NextResponse.json({ error }, { status: 400 });
+        return NextResponse.json({ 
+          success: false, 
+          error: error.message || 'Failed to send email',
+          details: error
+        }, { status: 400 });
       }
 
       // Return success response
-      return NextResponse.json({ data });
+      return NextResponse.json({ success: true, data });
     } catch (resendError) {
       console.error('Resend API error details:', resendError);
       return NextResponse.json(
-        { error: resendError instanceof Error ? resendError.message : 'Failed to send email with Resend' },
+        { 
+          success: false, 
+          error: resendError instanceof Error ? resendError.message : 'Failed to send email with Resend',
+          details: resendError 
+        },
         { status: 500 }
       );
     }
@@ -68,7 +86,11 @@ export async function POST(req: NextRequest) {
     // Handle exceptions
     console.error('Email API error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to send email' },
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to send email',
+        details: error
+      },
       { status: 500 }
     );
   }
