@@ -7,7 +7,8 @@ export enum NotificationScenario {
   NEW_TIME_SLOTS = 1,
   TUTOR_SELECTED = 2,
   ALL_TUTORS_RESPONDED = 3,
-  TUTOR_ACKNOWLEDGED = 4
+  TUTOR_ACKNOWLEDGED = 4,
+  PROFESSOR_NOTIFIED = 5
 }
 
 /**

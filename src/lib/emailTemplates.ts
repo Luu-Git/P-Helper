@@ -158,6 +158,39 @@ export function generateTutorAcknowledgmentNotification(notifications: PendingNo
 }
 
 /**
+ * Generate email section for Scenario 5: Tutor acknowledges assignment
+ */
+export function generateProfessorNotificationTemplate(notifications: PendingNotification[]): string {
+  if (notifications.length === 0) return '';
+  
+  // Get the tutor name from the first notification
+  const tutorName = notifications[0].tutorName || 'A tutor';
+  
+  // Get all time slots
+  const timeSlots = notifications.flatMap(n => n.timeSlotDetails || []);
+  
+  if (timeSlots.length === 0) return '';
+  
+  return `
+    <div style="margin-bottom: 20px; padding: 15px; border-left: 4px solid #00ccff; background-color: #f5f5f5;">
+      <h2 style="margin-top: 0; font-size: 18px; color: #333;">✅ TUTOR ASSIGNMENT ACKNOWLEDGED</h2>
+      <p>${tutorName} has acknowledged their assignment for:</p>
+      <ul style="margin-top: 5px; padding-left: 20px;">
+        ${timeSlots.map(slot => `
+          <li>${formatDateTime(slot.date, `${slot.startTime} - ${slot.endTime}`)}</li>
+        `).join('')}
+      </ul>
+      <div style="margin-top: 15px;">
+        <a href="${APP_URL}/dashboard/calendar" 
+           style="display: inline-block; padding: 8px 16px; background-color: #00ccff; color: white; text-decoration: none; border-radius: 4px; font-weight: 500;">
+          View Calendar
+        </a>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Compile the complete email template with all relevant sections
  */
 export function compileEmailTemplate(

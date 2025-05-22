@@ -180,12 +180,34 @@ function generateTutorAcknowledgmentNotification(notifications: PendingNotificat
   return `
     <div class="notification-section">
       <h2>Tutor Confirmation</h2>
-      <p>The following tutoring sessions have been confirmed:</p>
+      <p>The following exam sessions have been confirmed:</p>
       <ul>
         ${notifications.flatMap(n => (n.timeSlotDetails || []).map(slot => `
           <li>
             <strong>${slot.date}</strong> from ${slot.startTime} to ${slot.endTime}
             ${n.tutorName ? `with ${n.tutorName}` : ''}
+          </li>
+        `)).join('')}
+      </ul>
+    </div>
+  `;
+}
+
+/**
+ * Generate a notification section for tutor assignment acknowledgment (professor notification)
+ */
+function generateProfessorNotificationSection(notifications: PendingNotification[]): string {
+  if (notifications.length === 0) return '';
+  
+  return `
+    <div class="notification-section">
+      <h2>Tutor Assignment Acknowledged</h2>
+      <p>The following tutors have acknowledged their assignments:</p>
+      <ul>
+        ${notifications.flatMap(n => (n.timeSlotDetails || []).map(slot => `
+          <li>
+            <strong>${slot.date}</strong> from ${slot.startTime} to ${slot.endTime}
+            ${n.tutorName ? `by ${n.tutorName}` : ''}
           </li>
         `)).join('')}
       </ul>
@@ -286,6 +308,10 @@ async function sendDigestEmail(recipient: EmailRecipient, notifications: Recipie
           
         case NotificationScenario.TUTOR_ACKNOWLEDGED:
           sectionContent = generateTutorAcknowledgmentNotification(notifs);
+          break;
+          
+        case NotificationScenario.PROFESSOR_NOTIFIED:
+          sectionContent = generateProfessorNotificationSection(notifs);
           break;
           
         default:

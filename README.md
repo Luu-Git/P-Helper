@@ -8,7 +8,17 @@ This doesn't really matter, but is useful for the AI to understand more about th
 - TailwindCSS
 - Firebase Auth, Storage, and Database
 
+## Notification System
 
+The application includes an email notification system that handles various scenarios:
+
+1. **NEW_TIME_SLOTS (1)**: When a professor creates new time slots
+2. **TUTOR_SELECTED (2)**: When a professor selects a tutor for a time slot
+3. **ALL_TUTORS_RESPONDED (3)**: When all tutors have provided their availability for a time slot
+4. **TUTOR_ACKNOWLEDGED (4)**: When a tutor acknowledges that they've been selected
+5. **PROFESSOR_NOTIFIED (5)**: When a professor is notified that a tutor has acknowledged their assignment
+
+Notifications are collected and sent as daily digest emails to users.
 
 ## Environment Variables
 
