@@ -333,7 +333,7 @@ async function sendDigestEmail(recipient: EmailRecipient, notifications: Recipie
     const htmlContent = compileEmailTemplate(
       `Hello ${recipient.name || recipient.email.split('@')[0]}`,
       emailSections,
-      'You can view and manage these items in your dashboard.'
+      `You can view and manage these items in your <a href="${process.env.NEXT_PUBLIC_APP_URL}" style="color: #0066cc; text-decoration: underline;">dashboard</a>.`
     );
     
     // Send the email
