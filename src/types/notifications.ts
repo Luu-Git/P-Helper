@@ -33,9 +33,9 @@ export interface PendingNotification {
   professorName?: string;
   tutorId?: string;
   tutorName?: string;
-  created: Date | string;
+  created: Timestamp;
   processed?: boolean;
-  processedAt?: Date | string;
+  processedAt?: Timestamp;
 }
 
 /**

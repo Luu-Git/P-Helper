@@ -52,7 +52,7 @@ export async function createNotification({
       scenario,
       recipientIds,
       timeSlotIds,
-      created: new Date(),
+      created: Timestamp.fromDate(new Date()),
       processed: false
     };
 
@@ -86,12 +86,13 @@ export async function notificationExists({
     // Get the start of the current day in UTC
     const now = new Date();
     const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())); 
+    const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
     
     // Query for unprocessed notifications with matching scenario and at least one matching recipient
     const q = query(
       collection(db, NOTIFICATIONS_COLLECTION),
       where('scenario', '==', scenario),
-      where('created', '>=', startOfDay),
+      where('created', '>=', startOfDayTimestamp),
       where('processed', '==', false)
     );
 
@@ -139,7 +140,7 @@ export async function getPendingNotifications(): Promise<PendingNotification[]> 
  */
 export async function markNotificationsProcessed(notificationIds: string[]): Promise<void> {
   try {
-    const now = new Date();
+    const now = Timestamp.fromDate(new Date());
     
     // Update each notification's processed status
     const updatePromises = notificationIds.map(id => 
@@ -252,6 +253,7 @@ export async function cleanupOldNotifications(daysOld: number = 7): Promise<numb
     // Calculate the cutoff date
     const now = new Date();
     const cutoffDate = new Date(now.getTime() - (daysOld * 24 * 60 * 60 * 1000));
+    const cutoffTimestamp = Timestamp.fromDate(cutoffDate);
     
     console.log(`Cleaning up notifications processed before ${cutoffDate.toISOString()}`);
     
@@ -259,7 +261,7 @@ export async function cleanupOldNotifications(daysOld: number = 7): Promise<numb
     const q = query(
       collection(db, NOTIFICATIONS_COLLECTION),
       where('processed', '==', true),
-      where('processedAt', '<=', cutoffDate)
+      where('processedAt', '<=', cutoffTimestamp)
     );
 
     const querySnapshot = await getDocs(q);

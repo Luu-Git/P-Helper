@@ -531,8 +531,7 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
         <tbody className="bg-white divide-y divide-gray-200">
           {entries.map((entry, index) => {
             const isSelectable = userRole === 'tutor' && user && 
-                                !entry.tutorResponses[user.uid] && 
-                                !entry.confirmation.selectedTutorId;
+                                !entry.tutorResponses[user.uid];
             
             return (
               <tr 
@@ -615,7 +614,7 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
                               e.stopPropagation();
                               handleEntrySelection(entry.id, e.target.checked);
                             }}
-                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer hover:bg-gray-100"
                           />
                         ) : (
                           // Show response status for current user
@@ -699,7 +698,7 @@ export default function CalendarGrid({ entries, tutors, professorId, onEntryUpda
               <button
                 onClick={() => handleBulkResponse('unavailable')}
                 className="px-4 py-2 rounded-md text-sm font-medium hover:opacity-90"
-                style={{ backgroundColor: STATUS_COLORS.unavailable, color: '#fff' }}
+                style={{ backgroundColor: STATUS_COLORS.unavailable, color: '#000' }}
               >
                 Not Available
               </button>
